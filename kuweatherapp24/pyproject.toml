@@ -22,10 +22,14 @@ test_sources = [
 
 requires = [
      "requests",
+     "pathlib",
+     "asyncio"
 ]
 test_requires = [
     "pytest",
     "requests",
+    "pathlib",
+    "asyncio"
 ]
 
 [tool.briefcase.app.kuweatherapp24.macOS]
