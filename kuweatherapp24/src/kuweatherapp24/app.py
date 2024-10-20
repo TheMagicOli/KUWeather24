@@ -334,7 +334,6 @@ class AndroidLinker:
            #it's temp_max is also in the second index
            allDayValues = self.weatherfileInstance.get(forvalue)[firstIndex:lastIndex]
            if len(allDayValues) == 0:
-               self.togaInstance.displayString("erm what the beta")
                # this means that all the day values
                # are equal to 0 and thus that there is only a single day chosen
                dayChosen = self.weatherfileInstance.get('date')[firstIndex] #Get the first beginnign day
