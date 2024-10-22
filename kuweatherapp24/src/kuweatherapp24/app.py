@@ -18,7 +18,7 @@ from android.content import Intent
 from java import jarray, jbyte
 from datetime import datetime, timedelta
 from meteostat import Daily, Point
-import flask
+from flask import Flask, request, jsonify
 from multiprocessing import Process
 #GLOBAL VARIABLES
 
@@ -32,50 +32,6 @@ wind_speed_max: 9.309791 10.116089 8.249648 10.711936 13.588738 7.4495792
 precipitation_probability_max: 45.0 100.0 100.0 100.0 97.0 100.0"""
 
 
-class FlaskServer():
-    def __init__(self, data):
-        self.app = Flask(__name__)
-        self.data = data
-        self.setup_routes()
-
-    def setup_routes(self):
-        items = self.data
-        @self.app.route('/')
-        def returnHome():
-            return """
-            KU Weather App 24<br>
-            Welcome! If you're seeing this page, the web server is running<br>
-            <form action='items' method='get'>
-            <input type="submit" value="Get"> </input> <b> <<< send GET request </b>
-            """
-        @self.app.route('/items', methods=['GET'])
-        def get_items():
-            return jsonify(items.returnParts())
-
-        @self.app.route('/items', methods=['POST'])
-        def add_item():
-            new_item = request.get_json()
-            items.append(new_item)
-            return jsonify(new_item), 201
-
-        @self.app.route('/items/<int:date><int:value>', methods=['PUT'])
-        def update_item(item_id):
-            item = next((item for item in items if item['id'] == item_id), None)
-            if item:
-                updated_data = request.get_json()
-                item.update(updated_data)
-                return jsonify(item)
-            return jsonify({'message': 'Item not found'}), 404
-
-        @self.app.route('/items/<int:item_id>', methods=['DELETE'])
-        def delete_item(item_id):
-            nonlocal items
-            items = [item for item in items if item['id'] != item_id]
-            return jsonify({'message': 'Item deleted'}), 200
-
-    def run(self):
-        self.app.run(debug=True, use_reloader=False)
-        print("RUNNING")
 
 class WeatherFileParser:
     '''A module that interperts KU '24s weather data and encoding'''
@@ -190,7 +146,7 @@ class AndroidLinker:
         self.currentTab = 0
         self.weatherfileInstance = weatherfileInstance
     def startREST(self):
-        FlaskServer(self.weatherfileInstance).run()
+        FlaskServer(self.weatherfileInstance).startMultiProcess()
     def switchTab(self, newtab: int):
         '''Changes the currently dispayed tab on the mainBox element'''
         self.currentTab = newtab
@@ -209,6 +165,8 @@ class AndroidLinker:
             self.togaInstance.windowBox.add(self.togaInstance.onlineBox)
         elif self.currentTab == 4:
             self.togaInstance.windowBox.add(self.togaInstance.graphBox)
+        elif self.currentTab == 5:
+            self.togaInstance.windowBox.add(self.togaInstance.webBrowserViewer)
         else:
             self.togaInstance.windowBox.add(toga.Button(text="Unknown Tab: " + str(self.currentTab) + "selected"))
     def visualise(self):
@@ -397,6 +355,213 @@ class AndroidLinker:
         self.togaInstance.beginDay3.items = datesWithoutIndexes
         self.togaInstance.endDay3.items = datesWithoutIndexes
 
+
+class FlaskServer:
+    def __init__(self, data):
+        self.app = Flask(__name__)
+        self.data = data
+        self.setup_routes()
+
+    def setup_routes(self):
+        items = self.data
+
+        @self.app.route('/')
+        def return_home():
+            print("/ REACHED \n\n\n\nWE GETTING PINGED")
+            #formatted version of whatever date values exist
+
+            formattedPUTOptions = ""
+            for datevalues in self.data.get("date"):
+                formattedPUTOptions = formattedPUTOptions + "<option>" + datevalues + "</option>"
+            return """
+            <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+            KU Weather App 24<br>
+            Welcome! If you're seeing this page, the web server is running<br>
+            <div class="w3-bar w3-black">
+              <button class="w3-bar-item w3-button" onclick="openCity('London')">GET</button>
+              <button class="w3-bar-item w3-button" onclick="openCity('Paris')">POST</button>
+              <button class="w3-bar-item w3-button" onclick="openCity('Tokyo')">PUT</button>
+              <button class="w3-bar-item w3-button" onclick="openCity('Delete')">DEL</button>
+            </div>
+            <div id="Delete" class="w3-container city">
+            <form id="delForm">
+            <select id="dateDel">
+            """ +  formattedPUTOptions + """
+            </form>
+            <br>
+            <form id="deleteForm">
+                <input type="text" name="item_id" placeholder="Enter item ID to delete">
+                <button type="submit">Delete Item</button>
+            </form>
+            <input type='submit' value='DELETE'>
+            </div>
+            <div id="London" class="w3-container city">
+            <form action='items' method='GET'>
+            <input type="submit" value="GET"> </input>
+            </form>
+            </div>
+            <div id="Paris" class="w3-container city"><form action='items'  method="POST">
+            <b>date <input type='text' name='date' id='date'></b><br>
+            <b>weather_code <input type='text' name='weather_code' id='weather_code'></b><br>
+            <b>temperature_max <input type='text' name='temperature_max' id='temperature_max'></b><br>
+            <b>temperature_min <input type='text' name='temperature_min' id='temperature_min'></b><br>
+            <b>precipitation_sum <input type='text' name='precipitation_sum' id='precipitation_sum'></b><br>
+            <b>wind_speed_max <input type='text' name='wind_speed_max' id='wind_speed_max'></b><br>
+            <b>precipitation_probability_max <input type='text' name='precipitation_probability_max' id='precipitation_probability_max'></b><br>
+            <input type="submit" value="POST"></form></div>
+            <div id="Tokyo" class="w3-container city">
+            <form id="putForm">
+                    <select id='datePUT'>
+                    """ + formattedPUTOptions + """
+                    </select>
+                    <br>
+                    <select id='keyPUT'>
+                    <option>date</option>
+                    <option>weather_code</option>
+                    <option>temperature_max</option>
+                    <option>temperature_min</option>
+                    <option>precipitation_sum</option>
+                    <option>wind_speed_max</option>
+                    <option>precipitation_probability_max</option>
+                    </select>
+                    <br>
+                    <input type="text" id="changePUT">
+                    <br>
+                    <input type="submit" value="PUT">
+                </form>
+
+                <script>
+                    document.getElementById('deleteForm').addEventListener('submit', function (e) {
+                        e.preventDefault();
+                        const formData = new FormData(this);
+                        const item_id = formData.get('item_id');
+
+                        fetch(window.location.origin + '/items/' + item_id, {
+                            method: 'DELETE'
+                        });
+                    });
+                </script>
+                <script>
+                    document.getElementById('putForm').addEventListener('submit', async function (e) {
+                        e.preventDefault();
+                        const formData = new FormData(this);
+                        const data = {};
+                        formData.forEach((value, key) => (data[key] = value));
+
+                        const response = await fetch('/items/1?date=' + document.getElementById('datePUT').value + '&key=' + document.getElementById('keyPUT').value+ '&change=' + document.getElementById('changePUT').value, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(data),
+                        });
+
+                        const result = await response.json();
+                        console.log(result);
+                    });
+                </script>
+                <script>
+                function openCity(cityName) {
+                  var i;
+                  var x = document.getElementsByClassName("city");
+                  for (i = 0; i < x.length; i++) {
+                    x[i].style.display = "none";
+                  }
+                  document.getElementById(cityName).style.display = "block";
+                }
+                </script>
+                <script>
+                openCity('London');
+                </script>
+            """
+
+        @self.app.route('/items', methods=['GET'])
+        def getItems():
+            return jsonify(items.returnParts())
+
+        @self.app.route('/items', methods=['POST'])
+        def addItem():
+            #data comes out in predictable way
+            #so we should be assigning these right
+            dataTypes = ["date", "weather_code", "temperature_max", "temperature_min", "precipitation_sum", "wind_speed_max", "precipitation_probability_max"]
+            newParts = []
+            i = 0
+            for value in self.data.returnParts():
+                #compounds the new value with the previous plus
+                #space plus the request form data
+                newParts.append(value + " " + request.form[dataTypes[i]])
+                i += 1
+            updatedString = "\n".join(newParts)
+            #gross and icky but too late to rename namespace
+            #just understand this is weatherfileparser as (self.data)
+            self.data.data = updatedString
+            self.data.elements = newParts
+            return jsonify("Sucess!"), 201
+
+        @self.app.route('/items/<int:item_id>', methods=['PUT'])
+        def update_item(item_id):
+            #item id is completely unused but the example
+            #i ported has it and removing it will break it
+            #and being so fr I got a couple hours to commit
+            #this so -o-
+
+            date = request.args.get('date')
+            key = request.args.get('key')
+            change = request.args.get('change')
+            #kinda gross but we gonna make a seperate put function
+            #built into here with self.data.data
+            #corresponding to the index of the weatherdefault
+            # we can go into the row through the key given
+            dataTypes = ["date", "weather_code", "temperature_max", "temperature_min", "precipitation_sum", "wind_speed_max", "precipitation_probability_max"]
+            currentWorkingData = self.data.elements
+            #manually search for column of data
+            row = 0
+            for possibleDataTypePairs in dataTypes:
+                #if the dataTypes is not in the current value
+                print(key)
+                print(possibleDataTypePairs)
+                if not key in possibleDataTypePairs:
+                    row += 1
+                    break
+            print(row)
+            #manually search for the row by getting the index of the date
+            column = self.data.returnIndexOfDate(date)
+            #correct value
+            rowOfData = self.data.elements[row]
+            print(rowOfData)
+            #split first at the : that seperate the key with values
+            #then the spaces between the values
+            columnOfRowOfDataWithKey = rowOfData.split(': ')
+            finalRowFormatted = columnOfRowOfDataWithKey[1].split(" ")
+            #this is where the magic happens! this is where we
+            #set the key value back!
+            finalRowFormatted[column] = change
+            #lets repackage this and dump it back into self.data.data/elements
+            newUnformattedChangedRow = " ".join(finalRowFormatted)
+            #merge key with value
+            newFormattedChangeRow = columnOfRowOfDataWithKey[0] + ": " + newUnformattedChangedRow
+            #change the old row to the new formatted change
+            currentWorkingData[row] = newFormattedChangeRow
+            #Reassign and clean up
+            self.data.elements = currentWorkingData
+            self.data.data = "\n".join(self.data.elements)
+            print(self.data.data)
+
+            return "grr"
+
+        @self.app.route('/items/<int:item_id>', methods=['DELETE'])
+        def delete_item(item_id):
+            return jsonify({'message': 'Item deleted'}), 200
+
+    def start(self):
+        self.app.run(debug=True, use_reloader=False, host='127.0.0.1', port=5000)
+    def startMultiProcess(self):
+        print("RUNNING\n\n\n\n\n\n\n\n\n\n\n\n\n\nRUNNING\n\n\n\n\n\n\n\n")
+        startServer = self.start
+        server_process = Process(target=startServer)
+        server_process.start()
+
+
 class MeteoAPI:
     def __init__(self, lat, long) -> None:
         #This lambda is used to return a datetime object from the
@@ -538,7 +703,10 @@ class HelloWorld(toga.App):
             self.andlink.switchTab(4)
     def runserver(self, button):
         """Displays more tabs to explore"""
-        self.andlink.startREST()
+        self.andlink.switchTab(5)
+        self.displayString("Server started!")
+    def ee():
+        pass
     def meteoBackend(self, button):
         self.andlink.meteoEval()
     def meteoCompare(self, button):
@@ -583,6 +751,8 @@ class HelloWorld(toga.App):
             self.wdp.updateData(content.decode('utf-8').replace("b'", "").replace('\'', ''))
             #updates selection to file
             self.andlink.updateToFile()
+    async def runAsyncServer(self):
+        await self.webBrowserViewer.load_url("http://127.0.0.1:5000")
     def startup(self):
         """toga.App's main initalising of graphic elements"""
         #Initialise all libraries and attributes them to self
@@ -591,6 +761,8 @@ class HelloWorld(toga.App):
         self.andlink = AndroidLinker(self, self.wdp)
         self.frontColorTheme = "white"
         self.backColorTheme = "white"
+        #start the web server
+        #self.andlink.startREST()
         #Create all GUI boxes
         #This is the main box that all elements are stored in
         self.mainBox = toga.Box(style=Pack(direction=COLUMN))
@@ -729,6 +901,11 @@ class HelloWorld(toga.App):
             style=Pack(padding=(0, 5), width=100),
             on_press=self.meteoBackend
         )
+        self.meteostatGetBtn= toga.Button(
+            text="Get Data",
+            style=Pack(padding=(0, 5), width=100),
+            on_press=self.meteoBackend
+        )
         self.compareAgainst = toga.Button(
             text="Compare Against DAte range",
             style=Pack(padding=(0, 5), width=300),
@@ -748,6 +925,10 @@ class HelloWorld(toga.App):
         )
         self.graphC = graphContextManager(self.graphCanvas.context)
         self.graphC.drawFromValues([0, 100, 50, 35, 100, 0])
+        self.webBrowserViewer = toga.WebView()
+        e = self.runAsyncServer()
+
+
         #Append all elements
         self.hotbarBox.add(self.openfile)
         self.hotbarBox.add(self.browse)
@@ -773,6 +954,9 @@ class HelloWorld(toga.App):
         self.moreBox.add(self.online)
         self.moreBox.add(self.graphbtn)
         self.moreBox.add(self.serverRun)
+        self.moreBox.add(self.mysteryFeature1)
+        self.moreBox.add(self.mysteryFeature2)
+        self.moreBox.add(self.mysteryFeature3)
         self.onlineBox.add(self.latcoordsText)
         self.onlineBox.add(self.latcoords)
         self.onlineBox.add(self.longcoordsText)
@@ -809,7 +993,7 @@ class HelloWorld(toga.App):
         #Updates all GUI elements after being made to display current
         #weather data that's selected
         self.andlink.updateToFile()
-
+        newasync = FlaskServer(self.wdp).startMultiProcess()
         #Toga's initialising and displaying the mainBox
         self.main_window = toga.MainWindow(title="KU Weather App")
         self.main_window.full_screen = False
