@@ -157,6 +157,8 @@ class AndroidLinker:
             self.togaInstance.windowBox.add(self.togaInstance.dateSelectBox)
             self.togaInstance.windowBox.add(self.togaInstance.scrollBox)
             self.togaInstance.windowBox.add(self.togaInstance.contentBox)
+            self.togaInstance.windowBox.add(self.togaInstance.imageBox)
+
         elif self.currentTab == 1:
             self.togaInstance.windowBox.add(self.togaInstance.compareBox)
         elif self.currentTab == 2:
@@ -332,6 +334,20 @@ class AndroidLinker:
     def updateCurrentDayDisplay(self, day):
         #Updates the string in todayWillBe to be generated from
         # the WeatherEval function of the current date
+        self.togaInstance.imageBox.clear()
+        weatherCode = float(self.weatherfileInstance.getForDay(day, "weather_code"))
+        #Add images of weathercode
+        if weatherCode < 3:
+            self.togaInstance.imageBox.add(self.togaInstance.clearImage)
+        elif weatherCode < 55:
+                self.togaInstance.imageBox.add(self.togaInstance.cloudyImage)
+        elif weatherCode < 69:
+                    self.togaInstance.imageBox.add(self.togaInstance.rainyImage)
+        elif weatherCode < 77:
+                    self.togaInstance.imageBox.add(self.togaInstance.snowyImage)
+        else:
+                            self.togaInstance.imageBox.add(self.togaInstance.snowyImage)
+        #self.togaInstance.imageBox.add(self.togaInstance.)
         self.togaInstance.todayWillBe.text = self.weatherfileInstance.evalWeatherCode(self.weatherfileInstance.getForDay(day, "weather_code"))
 
         self.togaInstance.averagesText.text = "\n Max Temp:  " + self.weatherfileInstance.getForDay(day, "temperature_max") + " Min Temp:" +  self.weatherfileInstance.getForDay(day, "temperature_min") + "\n Percipitation Summary: " + self.weatherfileInstance.getForDay(day, "precipitation_sum") + "\n Wind Speed (Max): " + self.weatherfileInstance.getForDay(day, "wind_speed_max") + "\n Percipitation Probability (Max): " + self.weatherfileInstance.getForDay(day, "precipitation_probability_max") + "\n"
@@ -792,6 +808,8 @@ class HelloWorld(toga.App):
         # extra to the application, parent to window
         self.moreBox = toga.Box(style=Pack(direction=COLUMN))
         #Make all graphical option buttons
+        self.imageBox  = toga.Box(style=Pack(direction=ROW))
+
         #hotbarBox
         self.graphBox = toga.Box(style=Pack(direction=COLUMN, background_color="white"))
         self.openfile = toga.Button(
@@ -923,11 +941,31 @@ class HelloWorld(toga.App):
             style=Pack(padding=(0, 5), width=100),
             on_press=self.meteoCompare
         )
+        self.mysteryFeature1 = toga.Button(
+            text="Mystery 1",
+            style=Pack(padding=(0, 5), width=100),
+            on_press=self.meteoCompare
+        )
+        self.mysteryFeature2 = toga.Button(
+            text="Mystery 2",
+            style=Pack(padding=(0, 5), width=100),
+            on_press=self.meteoCompare
+        )
+        self.mysteryFeature3 = toga.Button(
+            text="Mystery 3",
+            style=Pack(padding=(0, 5), width=100),
+            on_press=self.meteoCompare
+        )
         self.graphC = graphContextManager(self.graphCanvas.context)
         self.graphC.drawFromValues([0, 100, 50, 35, 100, 0])
         self.webBrowserViewer = toga.WebView()
         e = self.runAsyncServer()
 
+        self.clearImage = toga.ImageView(toga.Image('clear.png'), style=Pack(width=200, height=200))
+        self.cloudyImage = toga.ImageView(toga.Image('cloudy.png'), style=Pack(width=200, height=200))
+        self.rainyImage = toga.ImageView(toga.Image('rainy.png'), style=Pack(width=200, height=200))
+        self.snowyImage = toga.ImageView(toga.Image('csnowy.png'), style=Pack(width=200, height=200))
+        self.scaryImage = toga.ImageView(toga.Image('deathlyrain.png'), style=Pack(width=200, height=200))
 
         #Append all elements
         self.hotbarBox.add(self.openfile)
