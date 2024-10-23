@@ -147,6 +147,55 @@ class AndroidLinker:
         self.weatherfileInstance = weatherfileInstance
     def startREST(self):
         FlaskServer(self.weatherfileInstance).startMultiProcess()
+    def mysteryCompare(self, seltype, begin, end, forvalue, begin2, end2, forvalue2):
+        forvalue = forvalue.replace(" ", "_") #fixes the forvalue to be the same as file format
+        forvalue2 = forvalue2.replace(" ", "_") #fixes the forvalue to be the same as file format
+
+        #Get the index of the start and end date
+        firstIndex = self.weatherfileInstance.returnIndexOfDate(begin)
+        lastIndex  = self.weatherfileInstance.returnIndexOfDate(end)
+        firstIndex2 = self.weatherfileInstance.returnIndexOfDate(begin2)
+        lastIndex2  = self.weatherfileInstance.returnIndexOfDate(end2)
+        print(firstIndex)
+        print(lastIndex)
+        print(firstIndex2)
+        print(lastIndex2)
+        print(self.weatherfileInstance.get("date"))
+        dayRange = self.weatherfileInstance.get("date")[firstIndex:lastIndex]
+        dayRange2 = self.weatherfileInstance.get("date")[firstIndex2:lastIndex2]
+
+        #Based on the given key, we filter based on the day
+        #bc it's a 1:1 ratio between the dates
+         #For example, if 2024-04-31 is the second index
+        #it's temp_max is also in the second index
+        allDayValues = self.weatherfileInstance.get(forvalue)[firstIndex:lastIndex]
+        allDayValues2 = self.weatherfileInstance.get(forvalue2)[firstIndex2:lastIndex2]
+        #we keep spaces for readability
+        finalValue1 = 0
+        finalValue2 = 0
+        resultString = "noneerror"
+        if seltype == "Get the minimum":
+            finalValue1 = min(allDayValues)
+            finalValue2 = min(allDayValues2)
+            resultString = "The minimum"
+        if seltype == "Get the maximum":
+            finalValue1 = max(allDayValues)
+            finalValue2 = max(allDayValues2)
+            resultString = "The maximum"
+        if seltype == "Get the average":
+            allDayValues = list(map(float, allDayValues))
+            allDayValues2 = list(map(float, allDayValues))
+            finalValue1 = int(sum(allDayValues) / len(allDayValues))
+            finalValue2 = int(sum(allDayValues2) / len(allDayValues2))
+            resultString = "The average"
+        print(finalValue1)
+        print(finalValue2)
+        compString = "equal to"
+        if finalValue1 > finalValue2:
+            compString = "greater than"
+        if finalValue1 < finalValue2:
+            compString = "less than"
+        self.togaInstance.displayString(resultString + " of " + forvalue +  " is " + str(min(allDayValues)) + " which is " + compString +  " the " + forvalue2 + " of " + str(min(allDayValues2)))
     def switchTab(self, newtab: int):
         '''Changes the currently dispayed tab on the mainBox element'''
         self.currentTab = newtab
@@ -169,6 +218,8 @@ class AndroidLinker:
             self.togaInstance.windowBox.add(self.togaInstance.graphBox)
         elif self.currentTab == 5:
             self.togaInstance.windowBox.add(self.togaInstance.webBrowserViewer)
+        elif self.currentTab == 6:
+            self.togaInstance.windowBox.add(self.togaInstance.mysteryBox)
         else:
             self.togaInstance.windowBox.add(toga.Button(text="Unknown Tab: " + str(self.currentTab) + "selected"))
     def visualise(self):
@@ -369,7 +420,14 @@ class AndroidLinker:
         self.togaInstance.beginDay2.items = datesWithoutIndexes
         self.togaInstance.endDay2.items = datesWithoutIndexes
         self.togaInstance.beginDay3.items = datesWithoutIndexes
+        self.togaInstance.beginDay4.items = datesWithoutIndexes
+        self.togaInstance.beginDay5.items = datesWithoutIndexes
+
+
         self.togaInstance.endDay3.items = datesWithoutIndexes
+        self.togaInstance.endDay4.items = datesWithoutIndexes
+        self.togaInstance.endDay5.items = datesWithoutIndexes
+
 
 
 class FlaskServer:
@@ -606,6 +664,7 @@ class MeteoAPI:
         location = Point(self.lat, self.long)
         print("start!")
         data = Daily(location, start, end)
+        dataUn = data
         data = data.fetch()
         print("fetching!")
         try:
@@ -613,6 +672,9 @@ class MeteoAPI:
                     print(self.returnAPIConv(value))
                     #Checks to see if it's a temperature
                     return self.toF(data.loc[start,  self.returnAPIConv(value)])
+            if "precipitation" in value and "sum" in value:
+                print("true")
+                return dataUn.aggregate('prcp', 'sum')
             #If there's no temperature type, then
             #no conversion to F is needed
             return data.loc[start,  self.returnAPIConv(value)]
@@ -629,10 +691,14 @@ class MeteoAPI:
         #Get the location from the lat and long
         location = Point(self.lat, self.long)
         data = Daily(location, start, end)
+        dataUn = data
         data = data.fetch()
         if "temperature" in value:
             #Checks to see if it's a temperature
             return self.toF(data.loc[start,  self.returnAPIConv(value)])
+        if "precipitation" in value and "sum" in value:
+                print("true")
+                return dataUn.aggregate('prcp', 'sum')
         return data.loc[start,  self.returnAPIConv(value)]
     def compareFor(self, value1, value2, valuestring):
         """Returns a comparision string. Value 1 is the location  data, Value2 is the WeatherParser data"""
@@ -674,9 +740,9 @@ class graphContextManager():
             y = newy
             #iterate for loop
             i += 1
-            with self.graphContext.Fill(color="red") as fill:
+            with self.graphContext.Fill(color="black") as fill:
                 circle = fill.arc(x=x, y=newy, radius=5)
-            self.graphContext.stroke(color="red")
+            self.graphContext.stroke(color="black")
 
     def drawLine(self, xi, yi, xf, yf):
         yi = yi
@@ -717,6 +783,9 @@ class HelloWorld(toga.App):
     def graphTrigger(self, button):
             """Displays more tabs to explore"""
             self.andlink.switchTab(4)
+    def mysteryTab(self, button):
+        """Displays more tabs to explore"""
+        self.andlink.switchTab(6)
     def runserver(self, button):
         """Displays more tabs to explore"""
         self.andlink.switchTab(5)
@@ -729,6 +798,8 @@ class HelloWorld(toga.App):
         self.andlink.meteoCompare()
     def visualisevalue(self, button):
         self.andlink.visualise()
+    def mysteryFunctionTie(self, button):
+        self.andlink.mysteryCompare(seltype=self.typeOfData3.value, begin=self.beginDay4.value, end=self.endDay4.value, forvalue = self.forValue4.value, begin2=self.beginDay5.value, end2=self.endDay5.value, forvalue2 = self.forValue5.value)
     async def fileOpen(self, button):
             """Handles file opening of WeatherFileData"""
             #This is some Java Android system level calls.
@@ -775,8 +846,8 @@ class HelloWorld(toga.App):
         #This is basically our __init__
         self.wdp = WeatherFileParser(defaultData)
         self.andlink = AndroidLinker(self, self.wdp)
-        self.frontColorTheme = "white"
-        self.backColorTheme = "white"
+        self.frontColorTheme = "red"
+        self.backColorTheme = "blue"
         #start the web server
         #self.andlink.startREST()
         #Create all GUI boxes
@@ -800,10 +871,10 @@ class HelloWorld(toga.App):
         self.contentBox = toga.Box(style=Pack(direction=COLUMN))
         #This is the box where the compare gui is stored and
         # this is a child to windowBox
-        self.compareBox = toga.Box(style=Pack(direction=COLUMN, background_color="white"))
+        self.compareBox = toga.Box(style=Pack(direction=COLUMN, background_color=self.frontColorTheme))
         # This box allows for the online comparisson function
         # this is a child to windowbox
-        self.onlineBox = toga.Box(style=Pack(direction=COLUMN, background_color="white"))
+        self.onlineBox = toga.Box(style=Pack(direction=COLUMN, background_color=self.frontColorTheme))
         # This box displays all of the other features
         # extra to the application, parent to window
         self.moreBox = toga.Box(style=Pack(direction=COLUMN))
@@ -811,7 +882,8 @@ class HelloWorld(toga.App):
         self.imageBox  = toga.Box(style=Pack(direction=ROW))
 
         #hotbarBox
-        self.graphBox = toga.Box(style=Pack(direction=COLUMN, background_color="white"))
+        self.graphBox = toga.Box(style=Pack(direction=COLUMN, background_color=self.frontColorTheme))
+        self.mysteryBox = toga.Box(style=Pack(direction=COLUMN, background_color=self.frontColorTheme))
         self.openfile = toga.Button(
             text="Open",
             style=Pack(padding=(0, 5), width=100),
@@ -873,10 +945,12 @@ class HelloWorld(toga.App):
         self.scrollFwd = toga.Button(
             text="Next",
             on_press=self.fwdClick,
+            style=Pack(background_color=self.frontColorTheme),
         )
         self.scrollBwd = toga.Button(
             text="Back",
             on_press=self.bwdClick,
+            style=Pack(background_color=self.frontColorTheme)
         )
         self.scrollSpace = toga.Button(
             text="space",
@@ -889,49 +963,64 @@ class HelloWorld(toga.App):
         self.averagesText = toga.Label(" ", style=Pack(font_family="verdana"))
         self.typeOfData  = toga.Selection(style=Pack(color=self.frontColorTheme), items=["Get the minimum", "Get the maximum", "Get the average"])
         self.typeOfData2 = toga.Selection(style=Pack(color=self.frontColorTheme), items=["Get the minimum", "Get the maximum", "Get the average"])
+        self.typeOfData3  = toga.Selection(style=Pack(color=self.frontColorTheme), items=["Get the minimum", "Get the maximum", "Get the average"])
+
+        self.andCompareWithText =  toga.Label(text="   and compare it with", style=Pack(font_family="verdana", font_size=15, alignment=CENTER))
         self.betweenText = toga.Label(text="    between", style=Pack(font_family="verdana", font_size=15, alignment=CENTER))
+        self.betweenText2 = toga.Label(text="    between", style=Pack(font_family="verdana", font_size=15, alignment=CENTER))
+        self.betweenText3 = toga.Label(text="    between", style=Pack(font_family="verdana", font_size=15, alignment=CENTER))
+
         self.beginDay = toga.Selection(style=Pack(color=self.frontColorTheme), items=self.wdp.get("date"))
         self.beginDay2 = toga.Selection(style=Pack(color=self.frontColorTheme), items=self.wdp.get("date"))
         self.beginDay3 = toga.Selection(style=Pack(color=self.frontColorTheme), items=self.wdp.get("date"))
+        self.beginDay4 = toga.Selection(style=Pack(color=self.frontColorTheme), items=self.wdp.get("date"))
+        self.beginDay5 = toga.Selection(style=Pack(color=self.frontColorTheme), items=self.wdp.get("date"))
 
         self.andText = toga.Label(text="    and", style=Pack(font_family="verdana", font_size=15, alignment=CENTER))
+        self.andText2 = toga.Label(text="    and", style=Pack(font_family="verdana", font_size=15, alignment=CENTER))
+
         self.endDay = toga.Selection(style=Pack(color=self.frontColorTheme), items=self.wdp.get("date"))
         self.endDay2 = toga.Selection(style=Pack(color=self.frontColorTheme), items=self.wdp.get("date"))
         self.endDay3 = toga.Selection(style=Pack(color=self.frontColorTheme), items=self.wdp.get("date"))
+        self.endDay4 = toga.Selection(style=Pack(color=self.frontColorTheme), items=self.wdp.get("date"))
+        self.endDay5 = toga.Selection(style=Pack(color=self.frontColorTheme), items=self.wdp.get("date"))
 
         self.oftheText = toga.Label(text="    of the", style=Pack(font_family="verdana", font_size=15, alignment=CENTER))
         self.forValue = toga.Selection(style=Pack(color=self.frontColorTheme), items=["temperature max", "temperature min", "precipitation sum", "wind speed max", "weather code", "precipitation probability max"])
         self.forValue2 = toga.Selection(style=Pack(color=self.frontColorTheme), items=["temperature max", "temperature min", "precipitation sum", "wind speed max", "weather code", "precipitation probability max"])
         self.forValue3 = toga.Selection(style=Pack(color=self.frontColorTheme), items=["temperature max", "temperature min", "precipitation sum", "wind speed max", "weather code", "precipitation probability max"])
+        self.forValue4 = toga.Selection(style=Pack(color=self.frontColorTheme), items=["temperature max", "temperature min", "precipitation sum", "wind speed max", "weather code", "precipitation probability max"])
+        self.forValue5 = toga.Selection(style=Pack(color=self.frontColorTheme), items=["temperature max", "temperature min", "precipitation sum", "wind speed max", "weather code", "precipitation probability max"])
 
         self.getData =  toga.Button(
             text="Get Data",
+            style=Pack(background_color=self.backColorTheme),
             on_press=self.getDataBtn #Get and display data from sel
         )
         self.meteostatDataSelect  = toga.Selection(style=Pack(color=self.frontColorTheme), items=["Get the maximum temp", "Get the minimum temp", "Get the preciptation"])
         self.latcoordsText = toga.Label(text="Latitude: ")
-        self.latcoords = toga.TextInput(value="34.052235", style=Pack(background_color="gray"))
+        self.latcoords = toga.TextInput(value="34.052235", style=Pack(background_color=self.backColorTheme))
         self.longcoordsText = toga.Label(text="Longitutde: ")
-        self.longcoords = toga.TextInput(value="-119.243683", style=Pack(background_color="gray"))
+        self.longcoords = toga.TextInput(value="-119.243683", style=Pack(background_color=self.backColorTheme))
         self.onlineDateSelect = toga.DateInput(style=Pack(background_color=self.frontColorTheme))
         self.meteostatGetBtn= toga.Button(
             text="Get Data",
-            style=Pack(padding=(0, 5), width=100),
+            style=Pack(padding=(0, 5), width=100, background_color=self.backColorTheme),
             on_press=self.meteoBackend
         )
         self.meteostatGetBtn= toga.Button(
             text="Get Data",
-            style=Pack(padding=(0, 5), width=100),
+            style=Pack(padding=(0, 5), width=100, background_color=self.backColorTheme),
             on_press=self.meteoBackend
         )
         self.compareAgainst = toga.Button(
             text="Compare Against DAte range",
-            style=Pack(padding=(0, 5), width=300),
+            style=Pack(padding=(0, 5), width=300, background_color=self.backColorTheme),
             on_press=self.meteoCompare
         )
         self.graphGetValue = toga.Button(
             text="Visualise value",
-            style=Pack(padding=(0, 5), width=300),
+            style=Pack(padding=(0, 5), width=300, background_color=self.backColorTheme),
             on_press=self.visualisevalue
         )
         self.graphCanvas = toga.Canvas(style=Pack(width=1000, height=150)
@@ -941,31 +1030,26 @@ class HelloWorld(toga.App):
             style=Pack(padding=(0, 5), width=100),
             on_press=self.meteoCompare
         )
+        self.mysteryCheck = toga.Button(
+            text="Check",
+            style=Pack(padding=(0, 5), width=100, background_color=self.backColorTheme),
+            on_press=self.mysteryFunctionTie
+        )
         self.mysteryFeature1 = toga.Button(
-            text="Mystery 1",
-            style=Pack(padding=(0, 5), width=100),
-            on_press=self.meteoCompare
-        )
-        self.mysteryFeature2 = toga.Button(
-            text="Mystery 2",
-            style=Pack(padding=(0, 5), width=100),
-            on_press=self.meteoCompare
-        )
-        self.mysteryFeature3 = toga.Button(
-            text="Mystery 3",
-            style=Pack(padding=(0, 5), width=100),
-            on_press=self.meteoCompare
+            text="mystery",
+            style=Pack(padding=(0, 5), width=450, background_color=self.frontColorTheme),
+            on_press=self.mysteryTab
         )
         self.graphC = graphContextManager(self.graphCanvas.context)
         self.graphC.drawFromValues([0, 100, 50, 35, 100, 0])
         self.webBrowserViewer = toga.WebView()
         e = self.runAsyncServer()
 
-        self.clearImage = toga.ImageView(toga.Image('clear.png'), style=Pack(width=200, height=200))
-        self.cloudyImage = toga.ImageView(toga.Image('cloudy.png'), style=Pack(width=200, height=200))
-        self.rainyImage = toga.ImageView(toga.Image('rainy.png'), style=Pack(width=200, height=200))
-        self.snowyImage = toga.ImageView(toga.Image('csnowy.png'), style=Pack(width=200, height=200))
-        self.scaryImage = toga.ImageView(toga.Image('deathlyrain.png'), style=Pack(width=200, height=200))
+        self.clearImage = toga.ImageView(toga.Image('clear.png'), style=Pack(width=400, height=400, alignment=CENTER))
+        self.cloudyImage = toga.ImageView(toga.Image('cloudy.png'), style=Pack(width=400, height=400, alignment=CENTER))
+        self.rainyImage = toga.ImageView(toga.Image('rainy.png'), style=Pack(width=400, height=400, alignment=CENTER))
+        self.snowyImage = toga.ImageView(toga.Image('csnowy.png'), style=Pack(width=400, height=400, alignment=CENTER))
+        self.scaryImage = toga.ImageView(toga.Image('deathlyrain.png'), style=Pack(width=400, height=400, alignment=CENTER))
 
         #Append all elements
         self.hotbarBox.add(self.openfile)
@@ -993,14 +1077,12 @@ class HelloWorld(toga.App):
         self.moreBox.add(self.graphbtn)
         self.moreBox.add(self.serverRun)
         self.moreBox.add(self.mysteryFeature1)
-        self.moreBox.add(self.mysteryFeature2)
-        self.moreBox.add(self.mysteryFeature3)
         self.onlineBox.add(self.latcoordsText)
         self.onlineBox.add(self.latcoords)
         self.onlineBox.add(self.longcoordsText)
         self.onlineBox.add(self.longcoords)
         self.onlineBox.add(self.onlineDateSelect)
-        self.onlineBox.add(self.meteostatGetBtn)
+        #self.onlineBox.add(self.meteostatGetBtn)
         self.onlineBox.add(self.typeOfData2)
         self.onlineBox.add(self.forValue2)
         self.onlineBox.add(self.beginDay2)
@@ -1008,9 +1090,24 @@ class HelloWorld(toga.App):
         self.onlineBox.add(self.compareAgainst)
         self.graphBox.add(self.graphCanvas)
         self.graphBox.add(self.forValue3)
-        self.graphBox.add(self.graphGetValue)
         self.graphBox.add(self.beginDay3)
         self.graphBox.add(self.endDay3)
+        self.graphBox.add(self.graphGetValue)
+
+        self.mysteryBox.add(self.typeOfData3)
+        self.mysteryBox.add(self.forValue4)
+        self.mysteryBox.add(self.betweenText2)
+        self.mysteryBox.add(self.beginDay4)
+        self.mysteryBox.add(self.endDay4)
+        self.mysteryBox.add(self.andCompareWithText)
+        self.mysteryBox.add(self.forValue5)
+        self.mysteryBox.add(self.betweenText3)
+        self.mysteryBox.add(self.beginDay5)
+        self.mysteryBox.add(self.endDay5)
+        self.mysteryBox.add(self.mysteryCheck)
+
+
+
         #Append all boxes to the windowBox in order
         #by setting the tab
         self.andlink.switchTab(1)

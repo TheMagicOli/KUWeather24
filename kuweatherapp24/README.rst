@@ -10,3 +10,11 @@ For KU Coding Design 24
 .. _`Briefcase`: https://briefcase.readthedocs.io/
 .. _`The BeeWare Project`: https://beeware.org/
 .. _`becoming a financial member of BeeWare`: https://beeware.org/contributing/membership
+
+
+
+            <select id="deleteItemDate>
+            """ +  formattedPUTOptions + """
+            </select>
+            <br>
+                <button type="submit" onclick="console.log('delete');deleteItem();">Delete Item</button>
